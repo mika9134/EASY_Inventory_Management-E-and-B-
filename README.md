@@ -1,6 +1,6 @@
 # ENB Inventory
 
-ENB Inventory is a simple and modern inventory management system built with Next.js and TypeScript.
+
 
 ---
 

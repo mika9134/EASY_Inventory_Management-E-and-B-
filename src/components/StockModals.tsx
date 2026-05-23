@@ -10,6 +10,7 @@ import { InventoryItem } from '@/db/schema';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+
 interface StockModalsProps {
   items: InventoryItem[];
   isOpenIn: boolean;
@@ -20,7 +21,7 @@ interface StockModalsProps {
 
 export function StockModals({ items, isOpenIn, isOpenOut, onCloseIn, onCloseOut }: StockModalsProps) {
   const router = useRouter();
-  const [stockInMode, setStockInMode] = useState<'existing' | 'new'>('existing');
+
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,79 +88,21 @@ export function StockModals({ items, isOpenIn, isOpenOut, onCloseIn, onCloseOut 
     }
   };
 
-  return (
+
+return (
     <>
-      {/* Stock In Modal */}
+      {/* Stock In Modal - Now handles New Registration */}
       <Modal 
         isOpen={isOpenIn} 
         onClose={onCloseIn} 
-        title="Stock Reception"
+        title="New Registration"
         size="lg"
       >
         <div className="space-y-6">
           <div className="flex bg-neutral-100/80 p-1 rounded-xl">
-            <button 
-              onClick={() => setStockInMode('existing')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${stockInMode === 'existing' ? 'bg-white shadow-sm text-neutral-800 font-semibold' : 'text-neutral-500 hover:text-neutral-800'}`}
-            >
-              Existing Resource
-            </button>
-            <button 
-              onClick={() => setStockInMode('new')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${stockInMode === 'new' ? 'bg-white shadow-sm text-neutral-800 font-semibold' : 'text-neutral-500 hover:text-neutral-800'}`}
-            >
-              New Registration
-            </button>
-          </div>
-
-          {stockInMode === 'existing' ? (
-            <div className="space-y-4">
-              <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                <input 
-                  placeholder="Identify resource..."
-                  className="w-full pl-11 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary/10 transition-all outline-none text-sm text-neutral-800"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-2 no-scrollbar">
-                {filteredItems.map(item => (
-                  <button 
-                    key={item.id}
-                    onClick={() => setSelectedItemId(item.id.toString())}
-                    className={`w-full p-3.5 rounded-xl border text-left transition-all flex items-center justify-between ${selectedItemId === item.id.toString() ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-neutral-100 hover:bg-neutral-50'}`}
-                  >
-                    <div>
-                      <p className="font-semibold text-neutral-800 text-sm">{item.name}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">{item.category} • Current Stock: {item.stock}</p>
-                    </div>
-                    {selectedItemId === item.id.toString() && <Badge variant="success" className="rounded-lg">Selected</Badge>}
-                  </button>
-                ))}
-              </div>
-
-              <div className="pt-4 border-t border-neutral-100 space-y-4">
-                <Input 
-                  label="Quantity to Add"
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-                <Button 
-                  className="w-full h-12"
-                  onClick={() => handleStockAction('IN')}
-                  isLoading={isSubmitting}
-                >
-                  Confirm Inbound Logic
-                </Button>
-              </div>
-            </div>
-          ) : (
+            {/* New Registration Only */}
             <InventoryForm onSuccess={() => { onCloseIn(); router.refresh(); }} onCancel={onCloseIn} />
-          )}
+          </div>
         </div>
       </Modal>
 
@@ -213,7 +156,7 @@ export function StockModals({ items, isOpenIn, isOpenOut, onCloseIn, onCloseOut 
               onClick={() => handleStockAction('OUT')}
               isLoading={isSubmitting}
             >
-              Authorize Outbound Removal
+              Remove from Stock
             </Button>
           </div>
         </div>

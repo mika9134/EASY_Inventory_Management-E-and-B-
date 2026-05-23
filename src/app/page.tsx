@@ -1,7 +1,6 @@
 import { db } from '@/db';
 import { inventoryItems } from '@/db/schema';
 import InventoryList from '@/components/InventoryList';
-import { Card } from '@/components/ui';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Package, TrendingUp } from 'lucide-react';
 import { retryAsync } from '@/lib/utils';
@@ -10,7 +9,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function HomePage() {
-  // Fetch all items with retry logic for local development resilience
   const items = await retryAsync(
     () => db.query.inventoryItems.findMany({
       orderBy: (items, { desc }) => [desc(items.createdAt)],
@@ -19,57 +17,47 @@ export default async function HomePage() {
     500
   );
 
-  // Calculate statistics
   const totalItems = items.length;
-  const totalValue = items.reduce((sum, item) => {
-    return sum + parseFloat(item.price) * item.stock;
-  }, 0);
+  const totalValue = items.reduce((sum, item) => sum + parseFloat(item.price) * item.stock, 0);
 
   return (
-    <div className="min-h-screen flex">
-      <main className="flex-1 p-8 lg:p-12 overflow-x-hidden">
-        <div className="max-w-7xl mx-auto space-y-10 px-4 md:px-8">
-          
-          {/* Client Header with Modals */}
-          <DashboardHeader items={items} />
+    <div className="min-h-screen bg-white py-16 px-6 md:px-12">
+      <main className="max-w-5xl mx-auto space-y-16">
+        
+        <DashboardHeader items={items} />
 
-          {/* High Fidelity Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="relative overflow-hidden group border border-gray-200/50 shadow-soft bg-white p-6 rounded-[20px]">
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Assets</p>
-                  <p className="text-3xl font-bold text-neutral-800 font-display tracking-tight">
-                    {totalItems} Pcs
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl transition-all duration-350 group-hover:bg-blue-600 group-hover:text-white">
-                  <Package className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="relative overflow-hidden group border border-gray-200/50 shadow-soft bg-white p-6 rounded-[20px]">
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-xs font-semibold uppercase tracking-wider mb-1">Valuation</p>
-                  <p className="text-3xl font-bold text-neutral-800 font-display tracking-tight">
-                    {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl transition-all duration-350 group-hover:bg-blue-600 group-hover:text-white">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
+        {/* Minimalist Stats: No Cards, just typography and iconography */}
+        <section className="flex flex-col md:flex-row gap-12 border-t border-b border-slate-100 py-10">
+          <div className="flex items-center gap-4">
+            <div className="text-indigo-600 bg-indigo-50 p-3 rounded-full">
+              <Package className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total Inventory</p>
+              <p className="text-2xl font-bold text-slate-900">{totalItems} Assets Tracked</p>
+            </div>
           </div>
 
-          {/* Listings Area */}
-          <div className="space-y-8">
-            <InventoryList initialItems={items} />
+          <div className="flex items-center gap-4">
+            <div className="text-emerald-600 bg-emerald-50 p-3 rounded-full">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total Value</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(totalValue)} 
+                <span className="text-slate-400 text-lg ml-1 font-normal">ETB</span>
+              </p>
+            </div>
           </div>
+        </section>
 
-        </div>
+        {/* Listings Area */}
+        <section>
+          <h2 className="text-xl font-semibold text-slate-900 mb-6">Current Stock</h2>
+          <InventoryList initialItems={items} />
+        </section>
+
       </main>
     </div>
   );

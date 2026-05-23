@@ -15,12 +15,10 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'ENB Inventory | Enterprise Grade Asset Management',
+  title: 'EASY-ASSET Inventory |',
   description:
-    'The most sophisticated inventory management platform for modern teams.',
-  icons: {
-    icon: '/favicon.ico',
-  },
+    'The Best Inventory Management for ENB',
+
 };
 
 export default function RootLayout({

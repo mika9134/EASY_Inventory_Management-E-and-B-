@@ -8,44 +8,39 @@ import { retryAsync } from '@/lib/utils';
 /**
  * GET all inventory items with pagination
  */
+import { eq, ilike, or, and } from 'drizzle-orm';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const search = searchParams.get('search');
 
-    let query = db.query.inventoryItems.findMany({
+    // 1. Build dynamic filters
+    const filters = [];
+
+    if (category && category !== 'all') {
+      filters.push(eq(inventoryItems.category, category));
+    }
+
+    if (search) {
+      const searchTerm = `%${search}%`;
+      filters.push(
+        or(
+          ilike(inventoryItems.name, searchTerm),
+          ilike(inventoryItems.description, searchTerm)
+        )
+      );
+    }
+
+    // 2. Fetch only the required data from the database
+    const items = await db.query.inventoryItems.findMany({
+      where: filters.length > 0 ? and(...filters) : undefined,
       orderBy: (items, { desc }) => [desc(items.createdAt)],
     });
 
-    // Filter by category if provided
-    if (category && category !== 'all') {
-      // Note: Drizzle filtering would need to be applied at runtime
-      const allItems = await query;
-      const filtered = allItems.filter((item) => item.category === category);
-      const searched = search
-        ? filtered.filter(
-            (item) =>
-              item.name.toLowerCase().includes(search.toLowerCase()) ||
-              item.description?.toLowerCase().includes(search.toLowerCase())
-          )
-        : filtered;
-      return NextResponse.json(searched);
-    }
-
-    const items = await query;
-
-    // Filter by search if provided
-    const result = search
-      ? items.filter(
-          (item) =>
-            item.name.toLowerCase().includes(search.toLowerCase()) ||
-            item.description?.toLowerCase().includes(search.toLowerCase())
-        )
-      : items;
-
-    return NextResponse.json(result);
-  } catch (error: any) {
+    return NextResponse.json(items);
+  } catch (error) {
     console.error('Error fetching items:', error);
     return NextResponse.json(
       { error: 'Failed to fetch items. Please try again.' },

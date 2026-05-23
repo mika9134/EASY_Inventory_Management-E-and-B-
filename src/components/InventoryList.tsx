@@ -18,7 +18,10 @@ import {
   ArrowRight,
   LayoutGrid,
   List,
-  MoreVertical
+  MoreVertical,
+  PlusCircle,
+  MinusCircle,
+  ShieldCheck
 } from 'lucide-react';
 import {
   Button,
@@ -31,6 +34,7 @@ import {
 } from './ui';
 import { ConfirmDialog } from './ui/Modal';
 import InventoryForm from './InventoryForm';
+import { StockModals } from './StockModals'; // Imported StockModals component
 import { CATEGORIES } from '@/lib/validation';
 import { formatCurrency, formatDate, debounce } from '@/lib/utils';
 import { InventoryItem } from '@/db/schema';
@@ -48,6 +52,7 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
+  
   const [filteredItems, setFilteredItems] = useState(initialItems);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -57,6 +62,10 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Stock Modals State
+  const [isStockInOpen, setIsStockInOpen] = useState(false);
+  const [isStockOutOpen, setIsStockOutOpen] = useState(false);
 
   // Helper function to filter items
   const applyFilters = (
@@ -177,11 +186,80 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
 
   return (
     <div className="space-y-8">
-      {/* Search and Category Toggle */}
+      {/* Dynamic Full-Width Blue Theme Header Nav */}
+      <nav className="w-full border-b border-blue-100 bg-blue-50/90 backdrop-blur-md px-4 sm:px-8 py-4 -mx-4 sm:-mx-8 rounded-b-2xl mb-4">
+        <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          
+          {/* Header Left Branding */}
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 bg-blue-600 rounded-xl shadow-md shadow-blue-600/10 hidden sm:block">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display font-black tracking-tight text-xl text-blue-950">
+                  Inventory
+                </span>
+                <span className="text-blue-600 font-display font-medium text-xl">
+                  Management
+                </span>
+                <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  v1.0
+                </span>
+              </div>
+              <p className="text-xs text-blue-900/60 font-semibold tracking-wide uppercase mt-0.5 hidden md:block">
+                Enterprise Asset Optimization Suite
+              </p>
+            </div>
+          </div>
+
+          {/* Header Right Transaction Buttons */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <Button
+              onClick={() => setIsStockInOpen(true)}
+              className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/15 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center"
+            >
+              <PlusCircle className="w-4 h-4 mr-2 stroke-[2.5]" />
+              <span>Stock In</span>
+            </Button>
+
+            <Button
+              onClick={() => setIsStockOutOpen(true)}
+              className="h-11 px-5 bg-red-500 hover:bg-red-700 border border-red-500 text-blue-700 font-bold text-sm rounded-xl shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center"
+            >
+              <MinusCircle className="w-4 h-4 mr-2 stroke-[2.5]" />
+              <span>Stock Out</span>
+            </Button>
+          </div>
+
+        </div>
+      </nav>
+
+      {/* Search and Filters Layout */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative group flex-1 md:flex-none">
+          
+          {/* Left Controls */}
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
+            
+            {/* Category Dropdown */}
+            <div className="relative w-full sm:w-auto">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="h-[50px] w-full sm:w-auto px-4 pr-10 rounded-2xl border border-neutral-200 bg-white text-sm font-medium shadow-sm outline-none focus:ring-2 focus:ring-primary/10 appearance-none cursor-pointer"
+              >
+                {categoryOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            </div>
+
+            {/* Search */}
+            <div className="relative group flex-1 md:flex-none w-full sm:w-auto">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
@@ -191,44 +269,44 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
                 className="pl-11 pr-6 py-3 bg-white border border-neutral-200 rounded-2xl w-full md:w-96 focus:ring-2 focus:ring-primary/10 transition-all shadow-sm outline-none"
               />
             </div>
-            
+
             {/* View Toggle */}
-            <div className="flex bg-white border border-neutral-200 rounded-2xl p-1 shadow-sm">
-              <button 
+            <div className="flex bg-white border border-neutral-200 rounded-2xl p-1 shadow-sm ml-auto md:ml-0">
+              <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-neutral-400 hover:text-primary'}`}
+                className={`p-2 rounded-xl transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-primary text-white'
+                    : 'text-neutral-400 hover:text-primary'
+                }`}
               >
                 <LayoutGrid className="w-5 h-5" />
               </button>
-              <button 
+
+              <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-xl transition-all ${viewMode === 'list' ? 'bg-primary text-white' : 'text-neutral-400 hover:text-primary'}`}
+                className={`p-2 rounded-xl transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-primary text-white'
+                    : 'text-neutral-400 hover:text-primary'
+                }`}
               >
                 <List className="w-5 h-5" />
               </button>
             </div>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar w-full md:w-auto">
-            {categoryOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setSelectedCategory(opt.value)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap shadow-sm border ${selectedCategory === opt.value
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300'
-                  }`}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
         </div>
       </div>
 
       {/* Items Container */}
       {isLoading ? (
-        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+        <div
+          className={
+            viewMode === 'grid'
+              ? 'grid grid-cols-1 md:grid-cols-2 gap-6'
+              : 'space-y-4'
+          }
+        >
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="animate-pulse-slow">
               <div className="flex gap-4">
@@ -244,12 +322,18 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
       ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={<Layers size={48} />}
-          title="No items available!"
-          description="Please insert items under this category to see them filtered."
+          title="No items found"
+          description="No products match the current filter."
           action={
             items.length !== 0 && (
-              <Button variant="secondary" onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}>
-                Reset Filtering
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                }}
+              >
+                Reset Filters
               </Button>
             )
           }
@@ -257,7 +341,11 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
       ) : (
         <motion.div
           layout
-          className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}
+          className={
+            viewMode === 'grid'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+              : 'space-y-4'
+          }
         >
           <AnimatePresence mode="popLayout">
             {filteredItems.map((item) => (
@@ -267,11 +355,15 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                transition={{
+                  type: 'spring',
+                  damping: 25,
+                  stiffness: 300,
+                }}
               >
                 {viewMode === 'grid' ? (
                   <Card className="p-0 overflow-hidden flex flex-col group h-full">
-                    {/* Image Container */}
+                    {/* Image Area */}
                     <div className="relative h-48 overflow-hidden bg-neutral-50">
                       {item.imageUrl ? (
                         <Image
@@ -286,13 +378,22 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
                         </div>
                       )}
 
-                      {/* Badge Overlay */}
+                      {/* Stock Badge */}
                       <div className="absolute top-3 left-3">
-                        <Badge variant={item.stock > 10 ? 'success' : item.stock > 0 ? 'warning' : 'danger'}>
+                        <Badge
+                          variant={
+                            item.stock > 10
+                              ? 'success'
+                              : item.stock > 0
+                              ? 'warning'
+                              : 'danger'
+                          }
+                        >
                           {item.stock} Available
                         </Badge>
                       </div>
 
+                      {/* Actions overlay */}
                       <div className="absolute top-3 right-3 flex gap-2 translate-y-[-10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
                         <button
                           onClick={() => setEditingItem(item)}
@@ -309,64 +410,93 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
                       </div>
                     </div>
 
+                    {/* Content Area */}
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="text-base font-bold text-neutral-800 line-clamp-1 group-hover:text-primary transition-colors">
                           {item.name}
                         </h3>
-                        <p className="text-sm font-semibold text-primary font-display whitespace-nowrap">
+                        <p className="text-sm font-semibold text-primary whitespace-nowrap">
                           {Number(item.price).toLocaleString()} ETB
                         </p>
                       </div>
+                      {/* Stock amount */}
+                      <p className="text-sm text-neutral-600 mt-2">Stock: {item.stock} pcs</p>
                       <p className="text-neutral-500 text-xs line-clamp-2 mb-4 flex-1">
                         {item.description || 'No description available.'}
                       </p>
+
                       <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.category}</span>
-                        <span className="text-[10px] text-neutral-400">{formatDate(item.createdAt).split(',')[0]}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                          {item.category}
+                        </span>
+                        <span className="text-[10px] text-neutral-400">
+                          {formatDate(item.createdAt).split(',')[0]}
+                        </span>
                       </div>
                     </div>
                   </Card>
                 ) : (
-                  /* List View */
+                  /* List View Card */
                   <Card className="p-3 group hover:border-primary/30 transition-all">
                     <div className="flex items-center gap-4">
                       <div className="relative h-16 w-16 rounded-xl overflow-hidden bg-neutral-50 flex-shrink-0">
                         {item.imageUrl ? (
-                          <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 opacity-10" /></div>
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-6 h-6 opacity-10" />
+                          </div>
                         )}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <h3 className="font-bold text-neutral-800 group-hover:text-primary transition-colors truncate">{item.name}</h3>
+                            <h3 className="font-bold text-neutral-800 group-hover:text-primary transition-colors truncate">
+                              {item.name}
+                            </h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="default" className="px-2 py-0 bg-neutral-50 text-neutral-500 border border-neutral-100">
+                              <Badge
+                                variant="default"
+                                className="px-2 py-0 bg-neutral-50 text-neutral-500 border border-neutral-100"
+                              >
                                 {item.category}
                               </Badge>
-                              <span className="text-xs text-neutral-500 font-medium">{formatCurrency(item.price)} ETB</span>
+                              <span className="text-xs text-neutral-500 font-medium">
+                                {formatCurrency(item.price)} ETB
+                              </span>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-8">
-                             <div className="text-right hidden sm:block">
-                                <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">In Stock</p>
-                                <p className={`text-lg font-bold font-display ${item.stock > 10 ? 'text-green-600' : item.stock > 0 ? 'text-amber-500' : 'text-red-600'}`}>
-                                  {item.stock}
-                                </p>
-                             </div>
-                             
-                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                <Button variant="ghost" size="sm" onClick={() => setEditingItem(item)} className="h-8 w-8 p-0">
-                                  <Edit2 className="w-4 h-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => setDeletingItemId(item.id)} className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                             </div>
+                            <div className="text-right hidden sm:block">
+                              <p className="text-sm text-neutral-600">Stock: {item.stock} pcs</p>
+                            </div>
+
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingItem(item)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeletingItemId(item.id)}
+                                className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -379,13 +509,22 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
         </motion.div>
       )}
 
+      {/* Stock Transaction Modals Setup */}
+      <StockModals
+        items={items}
+        isOpenIn={isStockInOpen}
+        isOpenOut={isStockOutOpen}
+        onCloseIn={() => setIsStockInOpen(false)}
+        onCloseOut={() => setIsStockOutOpen(false)}
+      />
+
       {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={deletingItemId !== null}
-        title="Evict Asset?"
-        message="Are you sure you want to permanently remove this asset from the ecosystem? This protocol cannot be reversed."
-        confirmText="Confirm Eviction"
-        cancelText="Keep Asset"
+        title="Delete Item?"
+        message="Are you sure you want to permanently delete this item?"
+        confirmText="Delete"
+        cancelText="Cancel"
         isDangerous
         isLoading={isDeletingLoading}
         onConfirm={() => {
