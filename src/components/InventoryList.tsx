@@ -198,18 +198,14 @@ export default function InventoryList({ initialItems }: InventoryListProps) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black tracking-tight text-xl text-blue-950">
-                  Inventory
+                  Easy 
                 </span>
                 <span className="text-blue-600 font-display font-medium text-xl">
-                  Management
+                  Inventory Management System
                 </span>
-                <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  v1.0
-                </span>
+             
               </div>
-              <p className="text-xs text-blue-900/60 font-semibold tracking-wide uppercase mt-0.5 hidden md:block">
-                Enterprise Asset Optimization Suite
-              </p>
+
             </div>
           </div>
 
