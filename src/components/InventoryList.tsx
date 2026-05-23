@@ -1,0 +1,400 @@
+'use client';
+
+import { useState, useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search,
+  Filter,
+  Edit2,
+  Trash2,
+  Package,
+  DollarSign,
+  Tag,
+  Calendar,
+  Layers,
+  ArrowRight,
+  LayoutGrid,
+  List,
+  MoreVertical
+} from 'lucide-react';
+import {
+  Button,
+  Card,
+  Input,
+  Select,
+  EmptyState,
+  Badge,
+  Skeleton,
+} from './ui';
+import { ConfirmDialog } from './ui/Modal';
+import InventoryForm from './InventoryForm';
+import { CATEGORIES } from '@/lib/validation';
+import { formatCurrency, formatDate, debounce } from '@/lib/utils';
+import { InventoryItem } from '@/db/schema';
+
+interface InventoryListProps {
+  initialItems: InventoryItem[];
+}
+
+export default function InventoryList({ initialItems }: InventoryListProps) {
+  const router = useRouter();
+
+  const [items, setItems] = useState(initialItems);
+  
+  // Sync state with initialItems when server-side data changes (e.g., after router.refresh())
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
+  const [filteredItems, setFilteredItems] = useState(initialItems);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeletingLoading, setIsDeletingLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Helper function to filter items
+  const applyFilters = (
+    itemsToFilter: InventoryItem[],
+    query: string,
+    category: string
+  ) => {
+    let result = itemsToFilter;
+
+    // Filter by category
+    if (category !== 'all') {
+      result = result.filter((item) => item.category === category);
+    }
+
+    // Filter by search query
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(lowerQuery) ||
+          item.description?.toLowerCase().includes(lowerQuery) ||
+          item.category?.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    return result;
+  };
+
+  // Debounced search function
+  const debouncedSearch = debounce((query: string) => {
+    setFilteredItems(applyFilters(items, query, selectedCategory));
+  }, 300);
+
+  // Handle search input
+  useEffect(() => {
+    debouncedSearch(searchQuery);
+  }, [searchQuery, items, selectedCategory]);
+
+  // Handle category filter change
+  useEffect(() => {
+    setFilteredItems(applyFilters(items, searchQuery, selectedCategory));
+  }, [selectedCategory, items]);
+
+  // Handle delete
+  const handleDelete = async (id: number) => {
+    setIsDeletingLoading(true);
+    try {
+      const response = await fetch(`/api/items/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete item');
+      }
+
+      setItems((prevItems) => prevItems.filter((item) => item.id !== id));
+      setFilteredItems((prevItems) =>
+        prevItems.filter((item) => item.id !== id)
+      );
+      setDeletingItemId(null);
+
+      toast.success('Item deleted successfully');
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete');
+    } finally {
+      setIsDeletingLoading(false);
+    }
+  };
+
+  const handleEditSuccess = () => {
+    setEditingItem(null);
+    setIsLoading(true);
+    router.refresh();
+    setTimeout(() => setIsLoading(false), 1000);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+  };
+
+  const categoryOptions = [
+    { value: 'all', label: 'All Categories' },
+    ...CATEGORIES.map((cat) => ({ value: cat, label: cat })),
+  ];
+
+  if (editingItem) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="space-y-8"
+      >
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={handleCancelEdit}
+            className="group"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
+            Back to Collection
+          </Button>
+          <div className="h-4 w-px bg-neutral-200" />
+          <h2 className="text-xl font-bold text-neutral-800">Editing {editingItem.name}</h2>
+        </div>
+        <InventoryForm
+          initialData={editingItem}
+          onSuccess={handleEditSuccess}
+          onCancel={handleCancelEdit}
+        />
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Search and Category Toggle */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative group flex-1 md:flex-none">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-primary transition-colors" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-11 pr-6 py-3 bg-white border border-neutral-200 rounded-2xl w-full md:w-96 focus:ring-2 focus:ring-primary/10 transition-all shadow-sm outline-none"
+              />
+            </div>
+            
+            {/* View Toggle */}
+            <div className="flex bg-white border border-neutral-200 rounded-2xl p-1 shadow-sm">
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-neutral-400 hover:text-primary'}`}
+              >
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-xl transition-all ${viewMode === 'list' ? 'bg-primary text-white' : 'text-neutral-400 hover:text-primary'}`}
+              >
+                <List className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar w-full md:w-auto">
+            {categoryOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedCategory(opt.value)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap shadow-sm border ${selectedCategory === opt.value
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300'
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Items Container */}
+      {isLoading ? (
+        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="animate-pulse-slow">
+              <div className="flex gap-4">
+                <div className="h-24 w-24 bg-neutral-100 rounded-2xl" />
+                <div className="flex-1 space-y-3 py-2">
+                  <div className="h-4 bg-neutral-100 rounded w-3/4" />
+                  <div className="h-4 bg-neutral-100 rounded w-1/2" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <EmptyState
+          icon={<Layers size={48} />}
+          title="No items available!"
+          description="Please insert items under this category to see them filtered."
+          action={
+            items.length !== 0 && (
+              <Button variant="secondary" onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}>
+                Reset Filtering
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <motion.div
+          layout
+          className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredItems.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              >
+                {viewMode === 'grid' ? (
+                  <Card className="p-0 overflow-hidden flex flex-col group h-full">
+                    {/* Image Container */}
+                    <div className="relative h-48 overflow-hidden bg-neutral-50">
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-neutral-200">
+                          <Package className="w-12 h-12 opacity-10" />
+                        </div>
+                      )}
+
+                      {/* Badge Overlay */}
+                      <div className="absolute top-3 left-3">
+                        <Badge variant={item.stock > 10 ? 'success' : item.stock > 0 ? 'warning' : 'danger'}>
+                          {item.stock} Available
+                        </Badge>
+                      </div>
+
+                      <div className="absolute top-3 right-3 flex gap-2 translate-y-[-10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={() => setEditingItem(item)}
+                          className="p-1.5 bg-white/90 backdrop-blur shadow-sm rounded-lg hover:bg-white text-primary transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingItemId(item.id)}
+                          className="p-1.5 bg-white/90 backdrop-blur shadow-sm rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-5 flex flex-col flex-1">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-base font-bold text-neutral-800 line-clamp-1 group-hover:text-primary transition-colors">
+                          {item.name}
+                        </h3>
+                        <p className="text-sm font-semibold text-primary font-display whitespace-nowrap">
+                          {Number(item.price).toLocaleString()} ETB
+                        </p>
+                      </div>
+                      <p className="text-neutral-500 text-xs line-clamp-2 mb-4 flex-1">
+                        {item.description || 'No description available.'}
+                      </p>
+                      <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.category}</span>
+                        <span className="text-[10px] text-neutral-400">{formatDate(item.createdAt).split(',')[0]}</span>
+                      </div>
+                    </div>
+                  </Card>
+                ) : (
+                  /* List View */
+                  <Card className="p-3 group hover:border-primary/30 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-16 w-16 rounded-xl overflow-hidden bg-neutral-50 flex-shrink-0">
+                        {item.imageUrl ? (
+                          <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 opacity-10" /></div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <h3 className="font-bold text-neutral-800 group-hover:text-primary transition-colors truncate">{item.name}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="default" className="px-2 py-0 bg-neutral-50 text-neutral-500 border border-neutral-100">
+                                {item.category}
+                              </Badge>
+                              <span className="text-xs text-neutral-500 font-medium">{formatCurrency(item.price)} ETB</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-8">
+                             <div className="text-right hidden sm:block">
+                                <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">In Stock</p>
+                                <p className={`text-lg font-bold font-display ${item.stock > 10 ? 'text-green-600' : item.stock > 0 ? 'text-amber-500' : 'text-red-600'}`}>
+                                  {item.stock}
+                                </p>
+                             </div>
+                             
+                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                <Button variant="ghost" size="sm" onClick={() => setEditingItem(item)} className="h-8 w-8 p-0">
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => setDeletingItemId(item.id)} className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={deletingItemId !== null}
+        title="Evict Asset?"
+        message="Are you sure you want to permanently remove this asset from the ecosystem? This protocol cannot be reversed."
+        confirmText="Confirm Eviction"
+        cancelText="Keep Asset"
+        isDangerous
+        isLoading={isDeletingLoading}
+        onConfirm={() => {
+          if (deletingItemId) {
+            return handleDelete(deletingItemId);
+          }
+        }}
+        onCancel={() => setDeletingItemId(null)}
+      />
+    </div>
+  );
+}
